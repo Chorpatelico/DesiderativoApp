@@ -147,7 +147,7 @@
       color: #031220;
       font-weight: 700;
       letter-spacing: 0.02em;
-      cursor: true;
+      cursor: pointer;
       transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
       box-shadow: 0 10px 25px rgba(59,164,255,0.25);
     }
@@ -238,8 +238,8 @@
     }
     .catexias-container {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(280px,1fr));
+      gap: 10px;
     }
     .catexia-box {
       background: rgba(255,255,255,0.03);
@@ -247,10 +247,25 @@
       border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.05);
       display: grid;
-      gap: 6px;
+      gap: 8px;
     }
-    .catexia-box input {
+    .catexia-box input,
+    .catexia-box textarea {
       background: rgba(0,0,0,0.15);
+    }
+    .catexia-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .catexia-tag {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
     }
     .result-line { display: flex; justify-content: space-between; }
     .tag { padding: 4px 8px; border-radius: 8px; background: rgba(255,255,255,0.08); font-size: 11px; color: var(--text); }
@@ -296,7 +311,7 @@
         </div>
       </div>
 
-      <h2 class="section-title">Catesias dinámicas (6)</h2>
+      <h2 class="section-title">Catexias dinámicas (6)</h2>
       <div class="catexias-container" id="catexias-container"></div>
 
       <h2 class="section-title">Protocolo desiderativo</h2>
@@ -383,7 +398,14 @@
       { id: 'E7', label: 'E7 Manejo Ansiedad (9 fijo)', fixed: true }
     ];
 
-    const catexiasBase = ["orden", "reino", "simbolo", "racionalizacion", "TR", "libre"];
+    const catexiasConfig = [
+      { id: "pos1", label: "Catexia positiva 1", tipo: "Positiva" },
+      { id: "pos2", label: "Catexia positiva 2", tipo: "Positiva" },
+      { id: "pos3", label: "Catexia positiva 3", tipo: "Positiva" },
+      { id: "neg1", label: "Catexia negativa 1", tipo: "Negativa" },
+      { id: "neg2", label: "Catexia negativa 2", tipo: "Negativa" },
+      { id: "neg3", label: "Catexia negativa 3", tipo: "Negativa" }
+    ];
 
     let ultimoResultado = {
       siglas: "",
@@ -423,8 +445,8 @@
     function mostrarHistorial() {
       const data = JSON.parse(localStorage.getItem("historialAnalisis") || "[]");
       if (!data.length) { alert("Sin historial."); return; }
-      const texto = data.slice(0, 10).map((d,i)=>`${i+1}. ${d.fecha} - ${d.siglas} - ${d.gravedad} - ${d.texto.substring(0,60)}...`).join("\\n");
-      alert("Últimos 10 análisis:\\n" + texto);
+      const texto = data.slice(0, 10).map((d,i)=>`${i+1}. ${d.fecha} - ${d.siglas} - ${d.gravedad} - ${d.texto.substring(0,60)}...`).join("\n");
+      alert("Últimos 10 análisis:\n" + texto);
     }
 
     function randomFrom(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
@@ -477,7 +499,7 @@
         `- Gravedad: ${document.getElementById("gravedad-text").textContent}`,
         `- Símbolos detectados: ${document.getElementById("simbolos-detectados").textContent}`,
         `- Observación clínica: ${document.getElementById("observacion-clinica").textContent}`
-      ].join("\\n");
+      ].join("\n");
     }
 
     function renderScores(puntuaciones) {
@@ -493,7 +515,7 @@
       document.getElementById("sexo").value = "M";
       document.getElementById("observaciones").value = "";
       document.getElementById("respuesta").value = "";
-      document.querySelectorAll("#catexias-container input").forEach((inp, idx) => inp.value = catexiasBase[idx] || "");
+      document.querySelectorAll("#catexias-container input, #catexias-container textarea").forEach(inp => inp.value = "");
       document.querySelectorAll("#ejes-checkboxes input[type=checkbox]").forEach(cb => { cb.checked = cb.dataset.fixed === "true"; });
       document.getElementById("markdown-editor").value = "";
       document.getElementById("score-badges").innerHTML = "";
@@ -624,12 +646,32 @@
     function crearCatexias() {
       const cont = document.getElementById("catexias-container");
       cont.innerHTML = "";
-      catexiasBase.forEach((c, idx) => {
+      catexiasConfig.forEach(cfg => {
         const box = document.createElement("div");
         box.className = "catexia-box";
         box.innerHTML = `
-          <label>Catexia ${idx+1}</label>
-          <input value="${c}">
+          <div class="catexia-header">
+            <span>${cfg.label}</span>
+            <span class="catexia-tag">${cfg.tipo}</span>
+          </div>
+          <div class="grid two">
+            <div>
+              <label>Símbolo elegido</label>
+              <input data-catexia="${cfg.id}" data-field="simbolo" placeholder="Ej: CARAMELO">
+            </div>
+            <div>
+              <label>Tiempo de respuesta (seg)</label>
+              <input type="number" min="0" step="0.1" data-catexia="${cfg.id}" data-field="tiempo" placeholder="3.5">
+            </div>
+          </div>
+          <div>
+            <label>Racionalización</label>
+            <textarea rows="2" data-catexia="${cfg.id}" data-field="racionalizacion" placeholder="Motivo o justificación"></textarea>
+          </div>
+          <div>
+            <label>Comentarios</label>
+            <textarea rows="2" data-catexia="${cfg.id}" data-field="comentarios" placeholder="Notas adicionales"></textarea>
+          </div>
         `;
         cont.appendChild(box);
       });
