@@ -1,11 +1,37 @@
 const { app, BrowserWindow } = require('electron');
-let win;
-app.whenReady().then(() => {
-  win = new BrowserWindow({
-    width: 1400, height: 900,
-    webPreferences: { nodeIntegration: true, contextIsolation: false }
+const path = require('path');
+
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    show: false,
+    autoHideMenuBar: true,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false
+    }
   });
-  win.loadFile('index.html');
-  win.setMenuBarVisibility(false);
+
+  win.loadFile(path.join(__dirname, 'index.html'));
+
+  win.once('ready-to-show', () => {
+    win.show();
+  });
+
+  // Log de fallos de carga para depurar pantallas en blanco
+  win.webContents.on('did-fail-load', (_e, code, desc) => {
+    console.error('did-fail-load', code, desc);
+  });
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
 });
-app.on('window-all-closed', () => process.platform !== 'darwin' ? app.quit() : null);
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
