@@ -1,27 +1,35 @@
 {
   "name": "desiderativo-analyzer",
   "version": "1.0.0",
+  "description": "Analizador Desiderativo para Windows",
+  "author": "Tu Nombre",
+  "license": "MIT",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "build-win": "electron-builder --win --publish never",
-    "build-mac": "electron-builder --mac --publish never",
-    "build": "electron-builder --mac --win --publish never"
+    "build-win": "electron-builder --win --publish never"
   },
+  "dependencies": {},
   "devDependencies": {
-    "electron": "20.3.12",
-    "electron-builder": "24.13.3"
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.desiderativo.analyzer",
-    "mac": {
-      "category": "public.app-category.productivity",
-      "target": "dmg",
-      "arch": ["x64"],
-      "minimumSystemVersion": "10.12.0"
-    },
+    "appId": "com.tuempresa.desiderativo",
+    "productName": "Desiderativo",
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "package.json"
+    ],
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     }
   }
 }
