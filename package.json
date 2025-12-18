@@ -9,12 +9,19 @@
     "build": "electron-builder --mac --win --publish never"
   },
   "devDependencies": {
-    "electron": "latest",
-    "electron-builder": "latest"
+    "electron": "20.3.12",
+    "electron-builder": "24.13.3"
   },
   "build": {
     "appId": "com.desiderativo.analyzer",
-    "mac": { "category": "public.app-category.productivity" },
-    "win": { "target": "nsis" }
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg",
+      "arch": ["x64"],
+      "minimumSystemVersion": "10.12.0"
+    },
+    "win": {
+      "target": "nsis"
+    }
   }
 }
