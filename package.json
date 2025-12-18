@@ -6,6 +6,7 @@
   "license": "MIT",
   "main": "main.js",
   "scripts": {
+    "start": "electron .",
     "build-win": "electron-builder --win --publish never"
   },
   "dependencies": {},
@@ -16,8 +17,9 @@
   "build": {
     "appId": "com.tuempresa.desiderativo",
     "productName": "Desiderativo",
+    "asar": true,
     "files": [
-      "dist/**/*",
+      "index.html",
       "main.js",
       "package.json"
     ],
@@ -29,7 +31,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     }
   }
 }
