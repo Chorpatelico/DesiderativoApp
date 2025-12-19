@@ -19,7 +19,6 @@ function createWindow() {
     win.show();
   });
 
-  // Log de fallos de carga para depurar pantallas en blanco
   win.webContents.on('did-fail-load', (_e, code, desc) => {
     console.error('did-fail-load', code, desc);
   });
