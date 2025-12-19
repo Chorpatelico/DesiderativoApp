@@ -250,7 +250,8 @@
       gap: 8px;
     }
     .catexia-box input,
-    .catexia-box textarea {
+    .catexia-box textarea,
+    .catexia-box select {
       background: rgba(0,0,0,0.15);
     }
     .catexia-header {
@@ -311,12 +312,10 @@
         </div>
       </div>
 
-      <h2 class="section-title">Catexias dinámicas (6)</h2>
-      <div class="catexias-container" id="catexias-container"></div>
-
-      <h2 class="section-title">Protocolo desiderativo</h2>
-      <label for="respuesta">Símbolo y frase del paciente</label>
-      <textarea id="respuesta" placeholder="Ej: CARAMELO porque daría felicidad a quien me tomara"></textarea>
+      <section class="panel" id="catexias">
+        <h2 class="section-title">Catexias dinámicas (6)</h2>
+        <div class="catexias-container" id="catexias-container"></div>
+      </section>
 
       <h2 class="section-title">Ejes (checkbox: selecciona los que detectes)</h2>
       <div class="grid three" id="ejes-checkboxes"></div>
@@ -417,7 +416,8 @@
       gravedad: "🟢 Normal",
       frases: [],
       puntuaciones: {},
-      simbolos: []
+      simbolos: [],
+      catexias: []
     };
 
     // ---------------------------
@@ -445,7 +445,7 @@
     function mostrarHistorial() {
       const data = JSON.parse(localStorage.getItem("historialAnalisis") || "[]");
       if (!data.length) { alert("Sin historial."); return; }
-      const texto = data.slice(0, 10).map((d,i)=>`${i+1}. ${d.fecha} - ${d.siglas} - ${d.gravedad} - ${d.texto.substring(0,60)}...`).join("\n");
+      const texto = data.slice(0, 10).map((d,i)=>`${i+1}. ${d.fecha} - ${d.siglas} - ${d.gravedad} - ${(d.texto||"").substring(0,60)}...`).join("\n");
       alert("Últimos 10 análisis:\n" + texto);
     }
 
@@ -514,8 +514,16 @@
       document.getElementById("edad").value = "";
       document.getElementById("sexo").value = "M";
       document.getElementById("observaciones").value = "";
-      document.getElementById("respuesta").value = "";
-      document.querySelectorAll("#catexias-container input, #catexias-container textarea").forEach(inp => inp.value = "");
+      document.querySelectorAll("#catexias-container .catexia-box").forEach(box => {
+        box.querySelectorAll("input, textarea, select").forEach(inp => {
+          if (inp.type === "checkbox") {
+            inp.checked = false;
+          } else {
+            inp.value = "";
+          }
+        });
+        box.querySelectorAll(".cambio-extra").forEach(el => el.style.display = "none");
+      });
       document.querySelectorAll("#ejes-checkboxes input[type=checkbox]").forEach(cb => { cb.checked = cb.dataset.fixed === "true"; });
       document.getElementById("markdown-editor").value = "";
       document.getElementById("score-badges").innerHTML = "";
@@ -528,34 +536,134 @@
     }
 
     // ---------------------------
-    // Motor semántico
+    // Motor semántico y catexias
     // ---------------------------
-    function inferirEjes(texto) {
-      const t = texto.toLowerCase();
-      const scores = { E1:0,E2:0,E3:0,E4:0,E5:0,E6:0,E7:9 };
-      const simbolos = [];
+    function construirObservacion(simbolos, scores) {
+      const hits = [];
+      if (scores.E1 >= 8) hits.push("Simbolización pobre o bloqueada.");
+      if (scores.E2 >= 8) hits.push("Estructuración rígida / ritual.");
+      if (scores.E3 >= 8) hits.push("Pulsiòn oral/depredadora marcada.");
+      if (scores.E4 >= 8) hits.push("Ansiedad persecutoria elevada.");
+      if (scores.E5 >= 8) hits.push("Matiz depresivo evidente.");
+      if (scores.E6 >= 8) hits.push("Narcisismo relacional / grandiosidad.");
+      return hits.length ? hits.join(" ") : "Sin signos marcados.";
+    }
 
-      // Simbolización pobre / bloqueo / trivial
-      if (/(no se|no sé|no puedo|nada)/.test(t)) { scores.E1 = Math.max(scores.E1,8); simbolos.push("bloqueo"); }
-      if (/(caramelo|dulce|chicle|golosina|candy)/.test(t)) { scores.E1 = 8; scores.E3 = Math.max(scores.E3,9); scores.E6 = Math.max(scores.E6,9); simbolos.push("caramelo"); }
-      if (/(juego de mesa|mesa|tablero|reglas)/.test(t)) { scores.E1 = Math.max(scores.E1,9); scores.E2 = Math.max(scores.E2,7); scores.E6 = Math.max(scores.E6,8); simbolos.push("juego de mesa"); }
-      if (/(tigre|leon|león|depredador|fiera|pantera|lobo)/.test(t)) { scores.E3 = Math.max(scores.E3,9); simbolos.push("depredador"); }
-      if (/(escape|huir|me mat[oó]|perseguir|miedo)/.test(t)) { scores.E4 = Math.max(scores.E4,8); simbolos.push("persecución"); }
-      if (/(hormiga|cactus|soledad|triste|pérdida|perdida)/.test(t)) { scores.E5 = Math.max(scores.E5,8); simbolos.push("depresiva"); }
-      if (/(feliz conmigo|feliz con migo|feliz conmigo mismo|feliz con otros|sería feliz conmigo|me idolatrar)/.test(t)) { scores.E6 = Math.max(scores.E6,9); simbolos.push("narcisismo"); }
-      if (/(rey|reina|omnipotente|dios)/.test(t)) { scores.E6 = Math.max(scores.E6,9); simbolos.push("omnipotente"); }
-      if (/(reglas|ritual|estructura)/.test(t)) { scores.E2 = Math.max(scores.E2,8); simbolos.push("estructural"); }
-      if (/(comer|morder|chupar|tragar)/.test(t)) { scores.E3 = Math.max(scores.E3,8); simbolos.push("oralidad"); }
-      if (/(juego)/.test(t)) { scores.E1 = Math.max(scores.E1,8); simbolos.push("lúdico"); }
+    function crearCatexias() {
+      const cont = document.getElementById("catexias-container");
+      cont.innerHTML = "";
+      catexiasConfig.forEach(cfg => {
+        const box = document.createElement("div");
+        box.className = "catexia-box";
+        box.dataset.catexiaId = cfg.id;
+        box.innerHTML = `
+          <div class="catexia-header">
+            <span>${cfg.label}</span>
+            <span class="catexia-tag">${cfg.tipo}</span>
+          </div>
+          <div class="grid three">
+            <div>
+              <label>Orden</label>
+              <input type="number" class="orden" min="1" step="1" placeholder="1">
+            </div>
+            <div>
+              <label>Reino</label>
+              <select class="reino">
+                <option value="">-</option>
+                <option value="animal">Animal</option>
+                <option value="vegetal">Vegetal</option>
+                <option value="mineral">Mineral</option>
+                <option value="objeto">Objeto</option>
+              </select>
+            </div>
+            <div>
+              <label>Símbolo</label>
+              <input class="simbolo" placeholder="Ej: CARAMELO">
+            </div>
+          </div>
+          <div class="grid two">
+            <div>
+              <label>TR (seg)</label>
+              <input type="number" class="TR" min="0" step="0.1" placeholder="3.5">
+            </div>
+            <div>
+              <label>Racionalización</label>
+              <textarea rows="2" class="racionalizacion" placeholder="Motivo o justificación"></textarea>
+            </div>
+          </div>
+          <div>
+            <label>Observaciones/comentario</label>
+            <textarea rows="2" class="obsCatexia" placeholder="Notas adicionales"></textarea>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" class="falloCambioToggle" id="${cfg.id}-fallo">
+            <label for="${cfg.id}-fallo">Fallo/Cambio</label>
+          </div>
+          <div class="grid two cambio-extra" style="display:none;">
+            <div>
+              <label>Otro símbolo</label>
+              <input class="simboloCambio" placeholder="Símbolo de cambio">
+            </div>
+            <div>
+              <label>TR (seg) cambio</label>
+              <input type="number" class="TRCambio" min="0" step="0.1" placeholder="2.0">
+            </div>
+          </div>
+          <div class="grid two cambio-extra" style="display:none;">
+            <div>
+              <label>Racionalización/obs. cambio</label>
+              <textarea rows="2" class="racCambio" placeholder="Motivo u observación del cambio"></textarea>
+            </div>
+          </div>
+        `;
+        cont.appendChild(box);
 
-      // Defaults for fixed / minimal detection
-      Object.keys(scores).forEach(k => { if (!scores[k]) scores[k] = k === "E7" ? 9 : 0; });
+        const toggle = box.querySelector(".falloCambioToggle");
+        const extras = box.querySelectorAll(".cambio-extra");
+        toggle.addEventListener("change", () => {
+          extras.forEach(el => { el.style.display = toggle.checked ? "grid" : "none"; });
+        });
+      });
+    }
+
+    function leerCatexias() {
+      const boxes = document.querySelectorAll("#catexias-container .catexia-box");
+      return Array.from(boxes).map(box => {
+        const falloCambio = box.querySelector(".falloCambioToggle").checked;
+        return {
+          orden: box.querySelector(".orden").value || "",
+          reino: box.querySelector(".reino").value || "",
+          simbolo: box.querySelector(".simbolo").value || "",
+          TR: box.querySelector(".TR").value || "",
+          racionalizacion: box.querySelector(".racionalizacion").value || "",
+          observaciones: box.querySelector(".obsCatexia").value || "",
+          falloCambio,
+          simboloCambio: falloCambio ? (box.querySelector(".simboloCambio").value || "") : "",
+          TRCambio: falloCambio ? (box.querySelector(".TRCambio").value || "") : "",
+          racCambio: falloCambio ? (box.querySelector(".racCambio").value || "") : ""
+        };
+      });
+    }
+
+    function construirTextoCatexias(catexias) {
+      return catexias.map(c =>
+        `${c.simbolo} ${c.racionalizacion} ${c.simboloCambio || ""} ${c.racCambio || ""}`
+      ).join(" ");
+    }
+
+    function inferirEgesManualYAuto(texto) {
+      const { scores, simbolos } = inferirEjes(texto);
+      document.querySelectorAll("#ejes-checkboxes input[type=checkbox]").forEach(cb => {
+        if (cb.dataset.fixed === "true") { scores[cb.value] = 9; return; }
+        if (cb.checked) { scores[cb.value] = Math.max(scores[cb.value], 8); }
+      });
       return { scores, simbolos };
     }
 
     function analizar() {
-      const texto = document.getElementById("respuesta").value.trim();
-      if (!texto) { alert("Ingresa la frase / símbolo del paciente."); return; }
+      const catexias = leerCatexias();
+      const texto = construirTextoCatexias(catexias).trim();
+      if (!texto) { alert("Ingresa al menos un símbolo en catexias."); return; }
 
       const { scores, simbolos } = inferirEgesManualYAuto(texto);
       renderScores(scores);
@@ -577,32 +685,12 @@
         ejes: scores,
         gravedad,
         simbolos,
+        catexias,
         fecha: new Date().toLocaleString()
       };
       ultimoResultado = entry;
       guardarHistorial(entry);
       localStorage.setItem("ultimoAnalisis", JSON.stringify(entry));
-    }
-
-    function inferirEgesManualYAuto(texto) {
-      const { scores, simbolos } = inferirEjes(texto);
-      // aplicar checkboxes manuales (excepto E7 fijo)
-      document.querySelectorAll("#ejes-checkboxes input[type=checkbox]").forEach(cb => {
-        if (cb.dataset.fixed === "true") { scores[cb.value] = 9; return; }
-        if (cb.checked) { scores[cb.value] = Math.max(scores[cb.value], 8); }
-      });
-      return { scores, simbolos };
-    }
-
-    function construirObservacion(simbolos, scores) {
-      const hits = [];
-      if (scores.E1 >= 8) hits.push("Simbolización pobre o bloqueada.");
-      if (scores.E2 >= 8) hits.push("Estructuración rígida / ritual.");
-      if (scores.E3 >= 8) hits.push("Pulsiòn oral/depredadora marcada.");
-      if (scores.E4 >= 8) hits.push("Ansiedad persecutoria elevada.");
-      if (scores.E5 >= 8) hits.push("Matiz depresivo evidente.");
-      if (scores.E6 >= 8) hits.push("Narcisismo relacional / grandiosidad.");
-      return hits.length ? hits.join(" ") : "Sin signos marcados.";
     }
 
     function generarInforme() {
@@ -640,43 +728,6 @@
       alert("PDF generado: " + filename);
     }
 
-    // ---------------------------
-    // Inicialización
-    // ---------------------------
-    function crearCatexias() {
-      const cont = document.getElementById("catexias-container");
-      cont.innerHTML = "";
-      catexiasConfig.forEach(cfg => {
-        const box = document.createElement("div");
-        box.className = "catexia-box";
-        box.innerHTML = `
-          <div class="catexia-header">
-            <span>${cfg.label}</span>
-            <span class="catexia-tag">${cfg.tipo}</span>
-          </div>
-          <div class="grid two">
-            <div>
-              <label>Símbolo elegido</label>
-              <input data-catexia="${cfg.id}" data-field="simbolo" placeholder="Ej: CARAMELO">
-            </div>
-            <div>
-              <label>Tiempo de respuesta (seg)</label>
-              <input type="number" min="0" step="0.1" data-catexia="${cfg.id}" data-field="tiempo" placeholder="3.5">
-            </div>
-          </div>
-          <div>
-            <label>Racionalización</label>
-            <textarea rows="2" data-catexia="${cfg.id}" data-field="racionalizacion" placeholder="Motivo o justificación"></textarea>
-          </div>
-          <div>
-            <label>Comentarios</label>
-            <textarea rows="2" data-catexia="${cfg.id}" data-field="comentarios" placeholder="Notas adicionales"></textarea>
-          </div>
-        `;
-        cont.appendChild(box);
-      });
-    }
-
     function crearEjesCheckbox() {
       const cont = document.getElementById("ejes-checkboxes");
       cont.innerHTML = "";
@@ -703,7 +754,6 @@
           document.getElementById("edad").value = data.edad || "";
           document.getElementById("sexo").value = data.sexo || "M";
           document.getElementById("observaciones").value = data.observaciones || "";
-          document.getElementById("respuesta").value = data.texto || "";
           if (data.ejes) { renderScores(data.ejes); setGravedadBadge(data.ejes); }
           document.getElementById("simbolos-detectados").textContent = (data.simbolos||[]).join(", ") || "-";
           document.getElementById("gravedad-text").textContent = data.gravedad || "-";
@@ -712,6 +762,30 @@
         } catch(e){ console.warn(e); }
       }
     };
+
+    // ---------------------------
+    // Motor semántico base
+    // ---------------------------
+    function inferirEjes(texto) {
+      const t = texto.toLowerCase();
+      const scores = { E1:0,E2:0,E3:0,E4:0,E5:0,E6:0,E7:9 };
+      const simbolos = [];
+
+      if (/(no se|no sé|no puedo|nada)/.test(t)) { scores.E1 = Math.max(scores.E1,8); simbolos.push("bloqueo"); }
+      if (/(caramelo|dulce|chicle|golosina|candy)/.test(t)) { scores.E1 = 8; scores.E3 = Math.max(scores.E3,9); scores.E6 = Math.max(scores.E6,9); simbolos.push("caramelo"); }
+      if (/(juego de mesa|mesa|tablero|reglas)/.test(t)) { scores.E1 = Math.max(scores.E1,9); scores.E2 = Math.max(scores.E2,7); scores.E6 = Math.max(scores.E6,8); simbolos.push("juego de mesa"); }
+      if (/(tigre|leon|león|depredador|fiera|pantera|lobo)/.test(t)) { scores.E3 = Math.max(scores.E3,9); simbolos.push("depredador"); }
+      if (/(escape|huir|me mat[oó]|perseguir|miedo)/.test(t)) { scores.E4 = Math.max(scores.E4,8); simbolos.push("persecución"); }
+      if (/(hormiga|cactus|soledad|triste|pérdida|perdida)/.test(t)) { scores.E5 = Math.max(scores.E5,8); simbolos.push("depresiva"); }
+      if (/(feliz conmigo|feliz con migo|feliz conmigo mismo|feliz con otros|sería feliz conmigo|me idolatrar)/.test(t)) { scores.E6 = Math.max(scores.E6,9); simbolos.push("narcisismo"); }
+      if (/(rey|reina|omnipotente|dios)/.test(t)) { scores.E6 = Math.max(scores.E6,9); simbolos.push("omnipotente"); }
+      if (/(reglas|ritual|estructura)/.test(t)) { scores.E2 = Math.max(scores.E2,8); simbolos.push("estructural"); }
+      if (/(comer|morder|chupar|tragar)/.test(t)) { scores.E3 = Math.max(scores.E3,8); simbolos.push("oralidad"); }
+      if (/(juego)/.test(t)) { scores.E1 = Math.max(scores.E1,8); simbolos.push("lúdico"); }
+
+      Object.keys(scores).forEach(k => { if (!scores[k]) scores[k] = k === "E7" ? 9 : 0; });
+      return { scores, simbolos };
+    }
 
     // ---------------------------
     // Pruebas obligatorias rápidas
@@ -736,7 +810,6 @@
   <!-- mantener el archivo autosuficiente y extenso.              -->
   <!-- ---------------------------------------------------------- -->
   <script>
-  // Bloque de notas teóricas extendidas (no ejecutable)
   /*
   1. Simbolización: la capacidad de transformar la pulsión en representación.
   2. Estructurales: sostén en marcos, rituales, mesas, reglas.
